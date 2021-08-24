@@ -2,9 +2,11 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	_ "github.com/lib/pq"
 
@@ -16,24 +18,27 @@ const (
 )
 
 var (
-	connstr   string = os.Getenv("AZURE_POSTGRES_CONNSTR")
+	connStr   string = os.Getenv("AZURE_POSTGRES_CONNSTR")
 	namespace string = os.Getenv("SERVICE_BUS_NAMESPACE")
-	value     string = os.Getenv("SERVICE_BUS_SHARED_ACCESS_KEY_VALUE")
+	keyValue  string = os.Getenv("SERVICE_BUS_SHARED_ACCESS_KEY_VALUE")
 
 	messages      [maxMessageCount]string
 	receivedCount int = 0
+
+	insertingBeginAt int64
+	insertingEndAt   int64
 
 	db *sql.DB
 	tx *sql.Tx
 )
 
 func main() {
-	sb := asbclient.New(asbclient.Topic, namespace, "RootManageSharedAccessKey", value)
+	fmt.Printf("%s\n%s\n%s\n", connStr, namespace, keyValue)
+	sb := asbclient.New(asbclient.Topic, namespace, "RootManageSharedAccessKey", keyValue)
 	sb.SetSubscription("database-inserter")
 
 	for {
-		sbMessage, _ := sb.PeekLockMessage("response-database-inserter", 30)
-
+		sbMessage, _ := sb.PeekLockMessage("response-database-inserter", 0)
 		if sbMessage != nil {
 			message := string(sbMessage.Body)
 			messages[receivedCount] = message
@@ -41,7 +46,9 @@ func main() {
 			log.Printf("%d: %s", receivedCount, message)
 
 			if receivedCount >= maxMessageCount {
-				db, _ = sql.Open("postgres", connstr)
+				log.Println("inserting")
+				insertingBeginAt = time.Now().Unix()
+				db, _ = sql.Open("postgres", connStr)
 				tx, _ = db.Begin()
 
 				for _, m := range messages {
@@ -51,9 +58,10 @@ func main() {
 
 				tx.Commit()
 				db.Close()
+				insertingEndAt = time.Now().Unix()
+				log.Printf("elapsed sec: %d", insertingEndAt-insertingBeginAt)
 				receivedCount = 0
 			}
-
 			sb.DeleteMessage(sbMessage)
 		}
 	}
