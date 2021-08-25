@@ -16,8 +16,9 @@ const (
 )
 
 type responseMessage struct {
-	monitorid  string
-	statuscode string
+	monitorID  string
+	statusCode string
+	region     string
 }
 
 var (
@@ -41,11 +42,12 @@ func main() {
 		busMessage, _ := sb.PeekLockMessage("response-database-inserter", 0)
 		if busMessage != nil {
 			splittedBusMessage = strings.Split(string(busMessage.Body), " ")
-			responseMessages[receivedCount].monitorid = splittedBusMessage[0]
-			responseMessages[receivedCount].statuscode = splittedBusMessage[1]
+			responseMessages[receivedCount].monitorID = splittedBusMessage[0]
+			responseMessages[receivedCount].statusCode = splittedBusMessage[1]
+			responseMessages[receivedCount].region = splittedBusMessage[2]
 			receivedCount++
 
-			log.Printf("%d: %s", receivedCount, splittedBusMessage)
+			log.Printf("%d: [%s] %s", receivedCount, splittedBusMessage[2], splittedBusMessage[0]+" "+splittedBusMessage[1])
 
 			if receivedCount >= maxMessageCountToCollectBeforeInsert {
 				log.Println("inserting")
@@ -53,7 +55,7 @@ func main() {
 				tx, _ = db.Begin()
 
 				for _, message := range responseMessages {
-					tx.Exec(`INSERT INTO "Responses" ("MonitorID", "StatusCode") VALUES ($1, $2);`, message.monitorid, message.statuscode)
+					tx.Exec(`INSERT INTO "Responses" ("MonitorID", "StatusCode") VALUES ($1, $2);`, message.monitorID, message.statusCode)
 				}
 
 				tx.Commit()
