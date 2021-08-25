@@ -1,6 +1,6 @@
-# upsmo-checker
+# upsmo-inserter
 
-It runs in a VM where it can easily reach the database server and listens to service bus messages which are sent to insert into the database by the upsmo-checker. It inserts messages into the database when the collected messages reach enough count.
+It runs in a VM where it can easily reach the database server and it's listening to service bus messages which are sent to insert into the database by the upsmo-checker.
 
 ## Prerequisites to run
 
